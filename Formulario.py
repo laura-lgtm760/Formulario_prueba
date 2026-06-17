@@ -10,7 +10,7 @@ from email import encoders
 st.title("Formulario de Registro de Parcelas")
 
 # =========================================================
-# CONFIGURACIÓN DEL CORREO (Rellena esto)
+# CONFIGURACIÓN DEL CORREO
 # =========================================================
 CORREO_EMISOR = "formulario.parcelas@gmail.com"  # El correo que enviará el Excel
 CONTRASEÑA_EMISOR = "iaut mnvj qvgi gtzy" # Contraseña de aplicación (luego te explico)
@@ -75,7 +75,7 @@ if st.session_state.finalizado:
 # =========================================================
 # FORMULARIO DE ENTRADA
 # =========================================================
-with st.form(key=f"formulario_parcela_{st.session_state.contador_form}"):
+with st.form(key=f"formulario_parcela_{st.session_state.contador_form}", enter_to_submit= False):
     st.subheader("Datos Personales")
     nombre = st.text_input("Nombre completo:", value=st.session_state.nombre_guardado)
     telefono = st.text_input("Teléfono:", value=st.session_state.telefono_guardado)
