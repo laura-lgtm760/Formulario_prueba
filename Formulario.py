@@ -1,10 +1,57 @@
 import streamlit as st
 import pandas as pd
 import os
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
 
 st.title("Formulario de Registro de Parcelas")
 
-# 1. Inicializamos la memoria de la sesión
+# =========================================================
+# CONFIGURACIÓN DEL CORREO (Rellena esto)
+# =========================================================
+CORREO_EMISOR = "formulario.parcelas@gmail.com"  # El correo que enviará el Excel
+CONTRASEÑA_EMISOR = "iaut mnvj qvgi gtzy" # Contraseña de aplicación (luego te explico)
+CORREO_RECEPTOR = "bec_lmacho@mcp.es" # El correo donde quieres RECIBIR los Excel
+
+# =========================================================
+# FUNCION PARA ENVIAR EL EMAIL CON EL EXCEL ADJUNTO
+# =========================================================
+def enviar_excel_por_correo(nombre_usuario, ruta_excel):
+    try:
+        # Creamos el mensaje
+        msg = MIMEMultipart()
+        msg['From'] = CORREO_EMISOR
+        msg['To'] = CORREO_RECEPTOR
+        msg['Subject'] = f"Nuevo formulario de parcelas: {nombre_usuario}"
+        
+        cuerpo = f"Hola,\n\nSe han recibido nuevas parcelas del usuario {nombre_usuario}.\nAdjunto encontrarás su archivo Excel."
+        msg.attach(MIMEText(cuerpo, 'plain'))
+        
+        # Abrimos el archivo Excel y lo adjuntamos
+        with open(ruta_excel, "rb") as adjunto:
+            part = MIMEBase('application', 'octet-stream')
+            part.set_payload(adjunto.read())
+            encoders.encode_base64(part)
+            part.add_header('Content-Disposition', f"attachment; filename= {os.path.basename(ruta_excel)}")
+            msg.attach(part)
+        
+        # Conexión al servidor de Gmail (si usas otra compañía, cambia el smtp)
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(CORREO_EMISOR, CONTRASEÑA_EMISOR)
+        server.sendmail(CORREO_EMISOR, CORREO_RECEPTOR, msg.as_string())
+        server.quit()
+        return True
+    except Exception as e:
+        st.error(f"Error al enviar el correo: {e}")
+        return False
+
+# =========================================================
+# MEMORIA DE LA SESIÓN
+# =========================================================
 if "nombre_guardado" not in st.session_state:
     st.session_state.nombre_guardado = ""
 if "telefono_guardado" not in st.session_state:
@@ -13,23 +60,22 @@ if "mostrar_boton_otra" not in st.session_state:
     st.session_state.mostrar_boton_otra = False
 if "finalizado" not in st.session_state:
     st.session_state.finalizado = False
-# Un contador para cambiar el nombre del formulario y forzar la limpieza
 if "contador_form" not in st.session_state:
     st.session_state.contador_form = 0
 
-# Si el usuario ya ha finalizado, mostramos solo el mensaje final y paramos
+# Pantalla de finalización
 if st.session_state.finalizado:
     st.success("Formulario completado. Muchas gracias.")
-    st.info(f"Tus datos se han guardado correctamente en el archivo Excel.")
-    
-    # Por si acaso quieren registrar a otra persona totalmente distinta, les dejamos un botón de reinicio
+    st.info("Los datos han sido procesados y enviados por correo correctamente.")
     if st.button("Registrar un nuevo usuario"):
-        st.session_state.clear() # Limpia toda la memoria
+        st.session_state.clear()
         st.rerun()
-    st.stop() # Detiene la ejecución aquí para que no vuelva a pintar el formulario
+    st.stop()
 
-# 2. EL FORMULARIO DE ENTRADA (con key dinámica)
-with st.form(key=f"formulario_parcela_{st.session_state.contador_form}", enter_to_submit= False):
+# =========================================================
+# FORMULARIO DE ENTRADA
+# =========================================================
+with st.form(key=f"formulario_parcela_{st.session_state.contador_form}"):
     st.subheader("Datos Personales")
     nombre = st.text_input("Nombre completo:", value=st.session_state.nombre_guardado)
     telefono = st.text_input("Teléfono:", value=st.session_state.telefono_guardado)
@@ -47,19 +93,16 @@ with st.form(key=f"formulario_parcela_{st.session_state.contador_form}", enter_t
     
     enviado = st.form_submit_button("Guardar esta Parcela")
 
-# Definimos el nombre del Excel dinámico según el nombre introducido
+# Definimos el nombre del Excel dinámico
 ARCHIVO_EXCEL = f"{nombre}.xlsx" if nombre else "registro_parcelas.xlsx"
 
-# 3. PROCESAMIENTO AL PULSAR "GUARDAR ESTA PARCELA"
 if enviado:
     if not nombre or not municipio:
         st.error("Rellene nombre y municipio")
     else:
-        # Guardamos los datos personales en la sesión
         st.session_state.nombre_guardado = nombre
         st.session_state.telefono_guardado = telefono
         
-        # Creamos la estructura de datos
         nueva_fila = {
             "Nombre": nombre, "Teléfono": telefono, "Municipio": municipio,
             "Código Municipio": cod_mun, "Polígono": poligono, "Parcela": parcela,
@@ -70,7 +113,6 @@ if enviado:
         
         df_nuevo = pd.DataFrame([nueva_fila])
         
-        # Guardado/Acumulado en Excel
         if os.path.exists(ARCHIVO_EXCEL):
             df_existente = pd.read_excel(ARCHIVO_EXCEL)  
             df_final = pd.concat([df_existente, df_nuevo], ignore_index=True)
@@ -80,25 +122,23 @@ if enviado:
         df_final.to_excel(ARCHIVO_EXCEL, index=False)
         
         st.toast(f"¡Parcela de {municipio} guardada correctamente!")
-        
-        # Activamos el botón secundario
         st.session_state.mostrar_boton_otra = True
         st.rerun()
 
-# 4. BOTONES DE ACCIÓN (FUERA DEL FORMULARIO)
+# Botones de acción tras guardar
 if st.session_state.mostrar_boton_otra:
-    st.info("La parcela se ha guardado en el archivo Excel. ¿Qué deseas hacer ahora?")
-    
+    st.info("La parcela se ha guardado de forma temporal. ¿Qué deseas hacer?")
     col1, col2 = st.columns(2)
-    
     with col1:
         if st.button("➕ Añadir otra Parcela"):
             st.session_state.contador_form += 1
             st.session_state.mostrar_boton_otra = False
             st.rerun()
-            
     with col2:
-        # Aquí usamos un st.button NORMAL, ya que estamos fuera del form
         if st.button("Terminar y Enviar"):
-            st.session_state.finalizado = True
-            st.rerun()
+            # Llamamos a la función de enviar correo pasándole el nombre y la ruta del Excel
+            with st.spinner("Enviando datos por correo..."):
+                exito = enviar_excel_por_correo(st.session_state.nombre_guardado, ARCHIVO_EXCEL)
+            if exito:
+                st.session_state.finalizado = True
+                st.rerun()
