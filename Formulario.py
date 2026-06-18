@@ -16,7 +16,7 @@ def enviar_excel_por_correo(nombre_usuario, df_datos):
     try:
         # LEEMOS LOS DATOS SEGUROS DESDE LA CAJA FUERTE (SECRETS)
         correo_emisor = st.secrets["CORREO_EMISOR"]
-        contraseña_emisor = st.secrets["CONTRASEÑA_EMISOR"]
+        contraseña_emisor = st.secrets["CONTRASENA_EMISOR"]
         correo_receptor = st.secrets["CORREO_RECEPTOR"]
 
         msg = MIMEMultipart()
