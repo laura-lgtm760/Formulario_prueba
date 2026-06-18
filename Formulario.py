@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import os
+import io  # <-- Esto sirve para fabricar el archivo en la memoria RAM
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -9,49 +9,51 @@ from email import encoders
 
 st.title("Formulario de Registro de Parcelas")
 
-
-# CONFIGURACIÓN DEL CORREO
-
-CORREO_EMISOR = "formulario.parcelas@gmail.com"  # El correo que enviará el Excel
-CONTRASEÑA_EMISOR = "iaut mnvj qvgi gtzy" # Contraseña de aplicación
-CORREO_RECEPTOR = "bec_lmacho@mcp.es" # El correo donde RECIBIR los Excel
-
-
-# FUNCION PARA ENVIAR EL EMAIL CON EL EXCEL ADJUNTO
-
-def enviar_excel_por_correo(nombre_usuario, ruta_excel):
+# =========================================================
+# FUNCION PARA ENVIAR EL EMAIL LEYENDO DE LA MEMORIA RAM
+# =========================================================
+def enviar_excel_por_correo(nombre_usuario, df_datos):
     try:
-        # Creamos el mensaje
+        # LEEMOS LOS DATOS SEGUROS DESDE LA CAJA FUERTE (SECRETS)
+        correo_emisor = st.secrets["CORREO_EMISOR"]
+        contraseña_emisor = st.secrets["CONTRASEÑA_EMISOR"]
+        correo_receptor = st.secrets["CORREO_RECEPTOR"]
+
         msg = MIMEMultipart()
-        msg['From'] = CORREO_EMISOR
-        msg['To'] = CORREO_RECEPTOR
+        msg['From'] = correo_emisor
+        msg['To'] = correo_receptor
         msg['Subject'] = f"Nuevo formulario de parcelas: {nombre_usuario}"
         
         cuerpo = f"Hola,\n\nSe han recibido nuevas parcelas del usuario {nombre_usuario}.\nAdjunto encontrarás su archivo Excel."
         msg.attach(MIMEText(cuerpo, 'plain'))
         
-        # Abrimos el archivo Excel y lo adjuntamos
-        with open(ruta_excel, "rb") as adjunto:
-            part = MIMEBase('application', 'octet-stream')
-            part.set_payload(adjunto.read())
-            encoders.encode_base64(part)
-            part.add_header('Content-Disposition', f"attachment; filename= {os.path.basename(ruta_excel)}")
-            msg.attach(part)
+        # TRUCO DE GOOGLE: Convertimos el DataFrame a Excel dentro de la memoria RAM (un "buffer" de bytes)
+        buffer_excel = io.BytesIO()
+        with pd.ExcelWriter(buffer_excel, engine='openpyxl') as writer:
+            df_datos.to_excel(writer, index=False)
+        buffer_excel.seek(0)
         
-        # Conexión al servidor de Gmail (si usas otra compañía, cambia el smtp)
+        # Adjuntamos el archivo virtual directamente al correo
+        part = MIMEBase('application', 'octet-stream')
+        part.set_payload(buffer_excel.read())
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition', f"attachment; filename={nombre_usuario}.xlsx")
+        msg.attach(part)
+        
+        # Envío a través del servidor de Gmail
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
-        server.login(CORREO_EMISOR, CONTRASEÑA_EMISOR)
-        server.sendmail(CORREO_EMISOR, CORREO_RECEPTOR, msg.as_string())
+        server.login(correo_emisor, contraseña_emisor)
+        server.sendmail(correo_emisor, correo_receptor, msg.as_string())
         server.quit()
         return True
     except Exception as e:
         st.error(f"Error al enviar el correo: {e}")
         return False
 
-
-# MEMORIA DE LA SESIÓN
-
+# =========================================================
+# MEMORIA DE LA SESIÓN (Para acumular parcelas temporalmente)
+# =========================================================
 if "nombre_guardado" not in st.session_state:
     st.session_state.nombre_guardado = ""
 if "telefono_guardado" not in st.session_state:
@@ -62,20 +64,23 @@ if "finalizado" not in st.session_state:
     st.session_state.finalizado = False
 if "contador_form" not in st.session_state:
     st.session_state.contador_form = 0
+# Aquí acumulamos las parcelas en la memoria RAM de la sesión del usuario actual
+if "lista_parcelas" not in st.session_state:
+    st.session_state.lista_parcelas = []
 
 # Pantalla de finalización
 if st.session_state.finalizado:
-    st.success("Formulario completado. Muchas gracias.")
+    st.success("🎉 ¡Formulario completado! Muchas gracias.")
     st.info("Los datos han sido procesados y enviados por correo correctamente.")
     if st.button("Registrar un nuevo usuario"):
         st.session_state.clear()
         st.rerun()
     st.stop()
 
-
+# =========================================================
 # FORMULARIO DE ENTRADA
-
-with st.form(key=f"formulario_parcela_{st.session_state.contador_form}", enter_to_submit= False):
+# =========================================================
+with st.form(key=f"formulario_parcela_{st.session_state.contador_form}"):
     st.subheader("Datos Personales")
     nombre = st.text_input("Nombre completo:", value=st.session_state.nombre_guardado)
     telefono = st.text_input("Teléfono:", value=st.session_state.telefono_guardado)
@@ -93,9 +98,6 @@ with st.form(key=f"formulario_parcela_{st.session_state.contador_form}", enter_t
     
     enviado = st.form_submit_button("Guardar esta Parcela")
 
-# Definimos el nombre del Excel dinámico
-ARCHIVO_EXCEL = f"{nombre}.xlsx" if nombre else "registro_parcelas.xlsx"
-
 if enviado:
     if not nombre or not municipio:
         st.error("Rellene nombre y municipio")
@@ -111,23 +113,16 @@ if enviado:
             "Observaciones": observaciones
         }
         
-        df_nuevo = pd.DataFrame([nueva_fila])
+        # Guardamos la parcela en la lista de la memoria RAM del navegador del usuario
+        st.session_state.lista_parcelas.append(nueva_fila)
         
-        if os.path.exists(ARCHIVO_EXCEL):
-            df_existente = pd.read_excel(ARCHIVO_EXCEL)  
-            df_final = pd.concat([df_existente, df_nuevo], ignore_index=True)
-        else:
-            df_final = df_nuevo
-            
-        df_final.to_excel(ARCHIVO_EXCEL, index=False)
-        
-        st.toast(f"¡Parcela de {municipio} guardada correctamente!")
+        st.toast(f"¡Parcela de {municipio} guardada temporalmente!")
         st.session_state.mostrar_boton_otra = True
         st.rerun()
 
 # Botones de acción tras guardar
 if st.session_state.mostrar_boton_otra:
-    st.info("La parcela se ha guardado de forma temporal. ¿Qué deseas hacer?")
+    st.info(f"Has guardado {len(st.session_state.lista_parcelas)} parcela(s). ¿Qué deseas hacer?")
     col1, col2 = st.columns(2)
     with col1:
         if st.button("➕ Añadir otra Parcela"):
@@ -136,9 +131,11 @@ if st.session_state.mostrar_boton_otra:
             st.rerun()
     with col2:
         if st.button("Terminar y Enviar"):
-            # Llamamos a la función de enviar correo pasándole el nombre y la ruta del Excel
+            # Convertimos la lista de parcelas que tenemos en la RAM a un DataFrame
+            df_final = pd.DataFrame(st.session_state.lista_parcelas)
+            
             with st.spinner("Enviando datos por correo..."):
-                exito = enviar_excel_por_correo(st.session_state.nombre_guardado, ARCHIVO_EXCEL)
+                exito = enviar_excel_por_correo(st.session_state.nombre_guardado, df_final)
             if exito:
                 st.session_state.finalizado = True
                 st.rerun()
