@@ -9,16 +9,16 @@ from email import encoders
 
 st.title("Formulario de Registro de Parcelas")
 
-# =========================================================
-# CONFIGURACIÓN DEL CORREO
-# =========================================================
-CORREO_EMISOR = "formulario.parcelas@gmail.com"  # El correo que enviará el Excel
-CONTRASEÑA_EMISOR = "iaut mnvj qvgi gtzy" # Contraseña de aplicación (luego te explico)
-CORREO_RECEPTOR = "bec_lmacho@mcp.es" # El correo donde quieres RECIBIR los Excel
 
-# =========================================================
+# CONFIGURACIÓN DEL CORREO
+
+CORREO_EMISOR = "formulario.parcelas@gmail.com"  # El correo que enviará el Excel
+CONTRASEÑA_EMISOR = "iaut mnvj qvgi gtzy" # Contraseña de aplicación
+CORREO_RECEPTOR = "bec_lmacho@mcp.es" # El correo donde RECIBIR los Excel
+
+
 # FUNCION PARA ENVIAR EL EMAIL CON EL EXCEL ADJUNTO
-# =========================================================
+
 def enviar_excel_por_correo(nombre_usuario, ruta_excel):
     try:
         # Creamos el mensaje
@@ -49,9 +49,9 @@ def enviar_excel_por_correo(nombre_usuario, ruta_excel):
         st.error(f"Error al enviar el correo: {e}")
         return False
 
-# =========================================================
+
 # MEMORIA DE LA SESIÓN
-# =========================================================
+
 if "nombre_guardado" not in st.session_state:
     st.session_state.nombre_guardado = ""
 if "telefono_guardado" not in st.session_state:
@@ -72,9 +72,9 @@ if st.session_state.finalizado:
         st.rerun()
     st.stop()
 
-# =========================================================
+
 # FORMULARIO DE ENTRADA
-# =========================================================
+
 with st.form(key=f"formulario_parcela_{st.session_state.contador_form}", enter_to_submit= False):
     st.subheader("Datos Personales")
     nombre = st.text_input("Nombre completo:", value=st.session_state.nombre_guardado)
