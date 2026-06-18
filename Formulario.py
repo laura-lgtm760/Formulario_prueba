@@ -70,7 +70,7 @@ if "lista_parcelas" not in st.session_state:
 
 # Pantalla de finalización
 if st.session_state.finalizado:
-    st.success("🎉 ¡Formulario completado! Muchas gracias.")
+    st.success("Formulario completado. Muchas gracias.")
     st.info("Los datos han sido procesados y enviados por correo correctamente.")
     if st.button("Registrar un nuevo usuario"):
         st.session_state.clear()
