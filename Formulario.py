@@ -177,7 +177,7 @@ def enviar_excel_por_correo(nombre_usuario, df_datos):
         msg['To'] = correo_receptor
         msg['Subject'] = f"Nuevo formulario de parcelas: {nombre_usuario}"
         
-        cuerpo = f"Hola,\n\nSe han recibido nuevas parcelas del usuario {nombre_usuario}.\nAdjunto encontrarás su archivo Excel con la fecha y hora de registro de cada parcela."
+        cuerpo = f"Buenos días: \n\nSe han recibido nuevas parcelas del usuario {nombre_usuario}.\nAdjunto encontrarás su archivo Excel con la fecha y hora de registro de cada parcela."
         msg.attach(MIMEText(cuerpo, 'plain'))
         
         # Convertimos el DataFrame a Excel dentro de la memoria RAM
@@ -235,7 +235,7 @@ if st.session_state.finalizado:
 with st.form(key=f"formulario_parcela_{st.session_state.contador_form}", enter_to_submit=False):
     st.subheader("Datos Personales")
     nombre = st.text_input("Nombre completo *:", value=st.session_state.nombre_guardado)
-    telefono = st.text_input("Teléfono (Opcional):", value=st.session_state.telefono_guardado)
+    telefono = st.text_input("Teléfono:", value=st.session_state.telefono_guardado)
     
     st.subheader("Datos de la Parcela")
     municipio = st.text_input("Municipio *:")
