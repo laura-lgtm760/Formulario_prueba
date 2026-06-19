@@ -7,7 +7,8 @@ from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 from datetime import datetime
-import timezonefinder
+from zoneinfo import ZoneInfo
+
 
 st.title("Formulario de Registro de Parcelas")
 
@@ -107,7 +108,7 @@ if enviado:
         st.session_state.nombre_guardado = nombre
         st.session_state.telefono_guardado = telefono
         
-        ahora = datetime.now()
+        ahora = datetime.now(ZoneInfo("Europe/Madrid"))
         fecha_hora_texto = ahora.strftime("%d/%m/%Y %H:%M:%S")
         
         nueva_fila = {
