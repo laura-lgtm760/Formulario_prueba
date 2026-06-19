@@ -6,6 +6,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
+from datetime import datetime
+import timezonefinder
 
 st.title("Formulario de Registro de Parcelas")
 
@@ -105,6 +107,9 @@ if enviado:
         st.session_state.nombre_guardado = nombre
         st.session_state.telefono_guardado = telefono
         
+        ahora = datetime.now()
+        fecha_hora_texto = ahora.strftime("%d/%m/%Y %H:%M:%S")
+        
         nueva_fila = {
             "Nombre": nombre, "Teléfono": telefono, "Municipio": municipio,
             "Código Municipio": cod_mun, "Polígono": poligono, "Parcela": parcela,
@@ -133,6 +138,9 @@ if st.session_state.mostrar_boton_otra:
         if st.button("Terminar y Enviar"):
             # Convertimos la lista de parcelas que tenemos en la RAM a un DataFrame
             df_final = pd.DataFrame(st.session_state.lista_parcelas)
+            
+            columnas = ["Fecha y Hora Registro                "] + [col for col in df_final.columns if col != "Fecha y Hora Registro"]
+            df_final = df_final[columnas]
             
             with st.spinner("Enviando datos por correo..."):
                 exito = enviar_excel_por_correo(st.session_state.nombre_guardado, df_final)
